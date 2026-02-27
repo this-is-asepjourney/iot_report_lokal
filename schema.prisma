@@ -1,0 +1,102 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// User — data user yang tersimpan di DB (auth tetap Firebase)
+// id = Firebase UID
+// ─────────────────────────────────────────────
+model User {
+  id             String   @id // Firebase UID
+  name           String
+  email          String   @unique
+  /// Hash password untuk autentikasi berbasis PostgreSQL
+  passwordHash   String?
+  role           UserRole @default(teknisi)
+  factory_access String[] // factory yang bisa diakses user ini
+  createdAt      DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// Device — perangkat IoT yang dipantau
+// ─────────────────────────────────────────────
+model Device {
+  id          String       @id @default(cuid())
+  mcid        String       @unique
+  mac_address String       @default("")
+  factory     String
+  line        String
+  status      DeviceStatus @default(active)
+  last_update DateTime     @default(now()) @updatedAt
+  created_at  DateTime     @default(now())
+
+  repairs       Repair[]
+  installations Installation[]
+}
+
+// ─────────────────────────────────────────────
+// Repair — laporan perbaikan perangkat
+// ─────────────────────────────────────────────
+model Repair {
+  id             String       @id @default(cuid())
+  device_id      String
+  mcid           String
+  mac_address    String       @default("")
+  factory        String
+  line           String
+  date           DateTime
+  problem        String
+  action         String       @default("")
+  technician_name String
+  photo_url      String?
+  status         RepairStatus @default(pending)
+  createdAt      DateTime     @default(now())
+
+  device Device @relation(fields: [device_id], references: [id])
+}
+
+// ─────────────────────────────────────────────
+// Installation — data pemasangan awal perangkat
+// ─────────────────────────────────────────────
+model Installation {
+  id          String   @id @default(cuid())
+  mcid        String
+  mac_address String   @default("")
+  factory     String
+  line        String
+  date_install DateTime
+  technician  String
+  createdAt   DateTime @default(now())
+
+  device_id String?
+  device    Device?  @relation(fields: [device_id], references: [id])
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+enum UserRole {
+  teknisi
+  supervisor
+  admin
+}
+
+enum DeviceStatus {
+  active
+  repair
+  broken
+}
+
+enum RepairStatus {
+  pending
+  completed
+  approved
+}
