@@ -1,6 +1,12 @@
 django
 djangorestframework
 django-cors-headers
+django-jazzmin
+django-import-export
+whitenoise
+gunicorn
+Pillow
 psycopg2-binary
 python-dotenv
 PyJWT
+openpyxl

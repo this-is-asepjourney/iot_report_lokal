@@ -1,0 +1,37 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+{% block content %}
+
+{% if total_activities is not None %}
+<div style="display:flex;gap:12px;margin:0 0 20px 0;flex-wrap:wrap;align-items:stretch">
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 20px;min-width:130px">
+    <p style="margin:0;font-size:0.72em;color:#16a34a;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Total Aktivitas</p>
+    <p style="margin:4px 0 0;font-size:1.8em;font-weight:700;color:#15803d">{{ total_activities }}</p>
+  </div>
+  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 20px;min-width:130px">
+    <p style="margin:0;font-size:0.72em;color:#2563eb;font-weight:600;text-transform:uppercase;letter-spacing:.04em">User Aktif</p>
+    <p style="margin:4px 0 0;font-size:1.8em;font-weight:700;color:#1d4ed8">{{ unique_users }}</p>
+  </div>
+  {% for stat in activity_stats %}
+  {% with action=stat.action total=stat.total %}
+  <div style="background:#fafafa;border:1px solid #e5e7eb;border-radius:10px;padding:14px 20px;min-width:110px">
+    <p style="margin:0;font-size:0.72em;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em">
+      {% if action == "login" %}Login
+      {% elif action == "logout" %}Logout
+      {% elif action == "register" %}Register
+      {% elif action == "create_repair" %}Buat Error
+      {% elif action == "update_repair" %}Update Repair
+      {% elif action == "create_installation" %}Instalasi
+      {% elif action == "import_data" %}Import
+      {% elif action == "export_data" %}Export
+      {% else %}{{ action }}{% endif %}
+    </p>
+    <p style="margin:4px 0 0;font-size:1.5em;font-weight:700;color:#374151">{{ total }}</p>
+  </div>
+  {% endwith %}
+  {% endfor %}
+</div>
+{% endif %}
+
+{{ block.super }}
+{% endblock %}

@@ -1,0 +1,288 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+
+{% if iot_summary %}
+{# ── Summary Cards ─────────────────────────────────────────────────────────── #}
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin:0 0 20px">
+  <div style="flex:1;min-width:130px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 18px">
+    <p style="margin:0;font-size:.72em;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Device Aktif</p>
+    <p style="margin:4px 0 0;font-size:2em;font-weight:800;color:#15803d">{{ iot_summary.active_devices }}</p>
+    <p style="margin:2px 0 0;font-size:.75em;color:#6b7280">dari {{ iot_summary.total_devices }} total</p>
+  </div>
+  <div style="flex:1;min-width:130px;background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:14px 18px">
+    <p style="margin:0;font-size:.72em;color:#d97706;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Error Pending</p>
+    <p style="margin:4px 0 0;font-size:2em;font-weight:800;color:#b45309">{{ iot_summary.pending_repairs }}</p>
+    <p style="margin:2px 0 0;font-size:.75em;color:#6b7280">dari {{ iot_summary.total_repairs }} total</p>
+  </div>
+  <div style="flex:1;min-width:130px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px">
+    <p style="margin:0;font-size:.72em;color:#2563eb;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Total Device</p>
+    <p style="margin:4px 0 0;font-size:2em;font-weight:800;color:#1d4ed8">{{ iot_summary.total_devices }}</p>
+  </div>
+  <div style="flex:1;min-width:130px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:14px 18px">
+    <p style="margin:0;font-size:.72em;color:#7c3aed;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Total Error</p>
+    <p style="margin:4px 0 0;font-size:2em;font-weight:800;color:#6d28d9">{{ iot_summary.total_repairs }}</p>
+  </div>
+</div>
+
+{# ── Row 1: Error per Line + Device Status ────────────────────────────────── #}
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <p style="margin:0;font-weight:700;font-size:.95em;color:#111827">📊 Error per Line</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="iotLineFactoryFilter"
+          style="border:1px solid #d1d5db;border-radius:6px;padding:4px 10px;font-size:.82em;color:#374151;background:#f9fafb;cursor:pointer">
+          <option value="ALL">Semua Factory</option>
+        </select>
+        <select id="iotLineTopN"
+          style="border:1px solid #d1d5db;border-radius:6px;padding:4px 10px;font-size:.82em;color:#374151;background:#f9fafb;cursor:pointer">
+          <option value="10">Top 10</option>
+          <option value="15" selected>Top 15</option>
+          <option value="20">Top 20</option>
+          <option value="0">Semua</option>
+        </select>
+      </div>
+    </div>
+    <div style="position:relative;height:300px">
+      <canvas id="iotErrorsPerLine"></canvas>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px">
+    <p style="margin:0 0 12px;font-weight:700;font-size:.95em;color:#111827">
+      🔵 Status Device
+    </p>
+    <div style="position:relative;height:300px">
+      <canvas id="iotDeviceStatus"></canvas>
+    </div>
+  </div>
+
+</div>
+
+{# ── Row 2: Trend Error + Error per Factory ───────────────────────────────── #}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <p style="margin:0;font-weight:700;font-size:.95em;color:#111827">📈 Trend Error (14 Hari Terakhir)</p>
+      <select id="iotTrendFactoryFilter"
+        style="border:1px solid #d1d5db;border-radius:6px;padding:4px 10px;font-size:.82em;color:#374151;background:#f9fafb;cursor:pointer">
+        <option value="ALL">Semua Factory</option>
+      </select>
+    </div>
+    <div style="position:relative;height:220px">
+      <canvas id="iotErrorsTrend"></canvas>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px">
+    <p style="margin:0 0 12px;font-weight:700;font-size:.95em;color:#111827">
+      🏭 Error per Factory
+    </p>
+    <div style="position:relative;height:220px">
+      <canvas id="iotErrorsPerFactory"></canvas>
+    </div>
+  </div>
+
+</div>
+
+{# ── Chart.js ─────────────────────────────────────────────────────────────── #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  const byLineDetail = {{ iot_errors_by_line_detail|safe }};
+  const byStatus     = {{ iot_devices_by_status|safe }};
+  const byFactory    = {{ iot_errors_by_factory|safe }};
+  const trendDetail  = {{ iot_errors_trend_detail|safe }};
+
+  const FONT = "'Segoe UI', system-ui, sans-serif";
+  Chart.defaults.font.family = FONT;
+  Chart.defaults.font.size   = 12;
+
+  // ── 1. Error per Line (stacked bar, horizontal, filterable) ──────────────
+
+  // Populate factory dropdown
+  const lineFactoryFilter = document.getElementById('iotLineFactoryFilter');
+  const lineTopNSelect    = document.getElementById('iotLineTopN');
+  const allLineFactories  = [...new Set(byLineDetail.map(r => r.factory))].sort();
+  allLineFactories.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f; opt.textContent = f;
+    lineFactoryFilter.appendChild(opt);
+  });
+
+  function buildLineData(factory, topN) {
+    const filtered = factory === 'ALL'
+      ? byLineDetail
+      : byLineDetail.filter(r => r.factory === factory);
+    // Aggregate by line
+    const agg = {};
+    filtered.forEach(r => {
+      if (!agg[r.line]) agg[r.line] = { pending: 0, completed: 0, approved: 0, total: 0 };
+      agg[r.line].pending   += r.pending;
+      agg[r.line].completed += r.completed;
+      agg[r.line].approved  += r.approved;
+      agg[r.line].total     += r.total;
+    });
+    let rows = Object.entries(agg)
+      .map(([line, v]) => ({ line, ...v }))
+      .sort((a, b) => b.total - a.total);
+    if (topN > 0) rows = rows.slice(0, topN);
+    return rows;
+  }
+
+  function applyLineChart(chart) {
+    const factory = lineFactoryFilter.value;
+    const topN    = parseInt(lineTopNSelect.value, 10);
+    const rows    = buildLineData(factory, topN);
+    chart.data.labels                  = rows.map(r => r.line);
+    chart.data.datasets[0].data        = rows.map(r => r.pending);
+    chart.data.datasets[1].data        = rows.map(r => r.completed);
+    chart.data.datasets[2].data        = rows.map(r => r.approved);
+    // Adjust canvas height so bars don't get cramped
+    const newH = Math.max(220, rows.length * 28);
+    chart.canvas.parentElement.style.height = newH + 'px';
+    chart.update();
+  }
+
+  const lineChart = new Chart(document.getElementById('iotErrorsPerLine'), {
+    type: 'bar',
+    data: {
+      labels: [],
+      datasets: [
+        { label: 'Pending',   data: [], backgroundColor: '#fbbf24' },
+        { label: 'Completed', data: [], backgroundColor: '#34d399' },
+        { label: 'Approved',  data: [], backgroundColor: '#60a5fa' },
+      ],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        x: { stacked: true, grid: { color: '#f3f4f6' } },
+        y: { stacked: true, grid: { display: false } },
+      },
+    },
+  });
+  applyLineChart(lineChart); // initial render
+
+  lineFactoryFilter.addEventListener('change', () => applyLineChart(lineChart));
+  lineTopNSelect.addEventListener('change',    () => applyLineChart(lineChart));
+
+  // ── 2. Device Status Doughnut ─────────────────────────────────────────────
+  const statusColors = { active: '#22c55e', repair: '#f59e0b', broken: '#ef4444' };
+  new Chart(document.getElementById('iotDeviceStatus'), {
+    type: 'doughnut',
+    data: {
+      labels: byStatus.map(r => r.status.charAt(0).toUpperCase() + r.status.slice(1)),
+      datasets: [{
+        data: byStatus.map(r => r.total),
+        backgroundColor: byStatus.map(r => statusColors[r.status] || '#94a3b8'),
+        borderWidth: 2,
+        borderColor: '#fff',
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      cutout: '60%',
+    },
+  });
+
+  // ── 3. Error Trend Line (filterable by factory) ───────────────────────────
+
+  // Collect all unique days (sorted) and factories from detail data
+  const allTrendDays = [...new Set(trendDetail.map(r => r.day))].sort();
+  const allFactories = [...new Set(trendDetail.map(r => r.factory))].sort();
+
+  // Populate factory dropdown
+  const factorySelect = document.getElementById('iotTrendFactoryFilter');
+  allFactories.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f;
+    opt.textContent = f;
+    factorySelect.appendChild(opt);
+  });
+
+  function buildTrendData(factory) {
+    const filtered = factory === 'ALL'
+      ? trendDetail
+      : trendDetail.filter(r => r.factory === factory);
+    const byDay = {};
+    filtered.forEach(r => { byDay[r.day] = (byDay[r.day] || 0) + r.total; });
+    return allTrendDays.map(d => byDay[d] || 0);
+  }
+
+  const trendChartCfg = {
+    type: 'line',
+    data: {
+      labels: allTrendDays,
+      datasets: [{
+        label: 'Error/Hari',
+        data: buildTrendData('ALL'),
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239,68,68,0.08)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#ef4444',
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#f3f4f6' }, ticks: { maxTicksLimit: 7 } },
+        y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { stepSize: 1 } },
+      },
+    },
+  };
+
+  const trendChart = new Chart(document.getElementById('iotErrorsTrend'), trendChartCfg);
+
+  factorySelect.addEventListener('change', function () {
+    const newData = buildTrendData(this.value);
+    trendChart.data.datasets[0].data = newData;
+    trendChart.data.datasets[0].label =
+      this.value === 'ALL' ? 'Error/Hari' : `Error/Hari – ${this.value}`;
+    trendChart.update();
+  });
+
+  // ── 4. Error per Factory Bar ──────────────────────────────────────────────
+  new Chart(document.getElementById('iotErrorsPerFactory'), {
+    type: 'bar',
+    data: {
+      labels: byFactory.map(r => r.factory),
+      datasets: [{
+        label: 'Total Error',
+        data: byFactory.map(r => r.total),
+        backgroundColor: byFactory.map((_, i) =>
+          ['#818cf8','#f472b6','#34d399','#fbbf24','#60a5fa','#a78bfa'][i % 6]
+        ),
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { stepSize: 1 } },
+      },
+    },
+  });
+})();
+</script>
+{% endif %}
+
+{# ── Default admin index content (app list) ───────────────────────────────── #}
+{{ block.super }}
+{% endblock %}

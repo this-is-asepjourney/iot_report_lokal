@@ -1,0 +1,150 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block content %}
+
+{% if device_stats %}
+<div style="display:flex;gap:12px;margin:0 0 16px 0;flex-wrap:wrap;align-items:stretch">
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px 20px;min-width:120px">
+    <p style="margin:0;font-size:0.72em;color:#16a34a;font-weight:600;text-transform:uppercase">Active</p>
+    <p style="margin:4px 0 0;font-size:1.8em;font-weight:700;color:#15803d">{{ device_stats.active }}</p>
+  </div>
+  <div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:14px 20px;min-width:120px">
+    <p style="margin:0;font-size:0.72em;color:#d97706;font-weight:600;text-transform:uppercase">Repair</p>
+    <p style="margin:4px 0 0;font-size:1.8em;font-weight:700;color:#b45309">{{ device_stats.repair }}</p>
+  </div>
+  <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:14px 20px;min-width:120px">
+    <p style="margin:0;font-size:0.72em;color:#dc2626;font-weight:600;text-transform:uppercase">Broken</p>
+    <p style="margin:4px 0 0;font-size:1.8em;font-weight:700;color:#b91c1c">{{ device_stats.broken }}</p>
+  </div>
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;min-width:120px">
+    <p style="margin:0;font-size:0.72em;color:#6b7280;font-weight:600;text-transform:uppercase">Total</p>
+    <p style="margin:4px 0 0;font-size:1.8em;font-weight:700;color:#374151">{{ device_stats.total }}</p>
+  </div>
+</div>
+{% endif %}
+
+<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;margin:0 0 16px 0;display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+  <div style="flex:1;min-width:260px">
+    <p style="margin:0 0 4px;font-size:0.82em;font-weight:700;color:#1d4ed8">📤 Import CSV / Excel (Update &amp; Insert)</p>
+    <p style="margin:0 0 4px;font-size:0.78em;color:#374151;line-height:1.6">
+      Kolom <strong>wajib</strong>: <code style="background:#dc2626;color:#fff;padding:1px 6px;border-radius:4px;font-weight:600">mcid</code>
+      &nbsp; — semua kolom lain opsional.<br>
+      Opsional: <code>mac_address</code> <code>factory</code> <code>line</code>
+      <code style="color:#15803d">type_machine</code> <code style="color:#7e22ce">model_machine</code> <code style="color:#0369a1">type_iot</code> <code>status</code><br>
+      <strong>Jika MCID sudah ada → di-UPDATE. Jika belum ada → di-INSERT.</strong>
+    </p>
+  </div>
+  <a href="{% url 'admin:core_device_template_csv' %}"
+     style="background:#2563eb;color:white;padding:7px 14px;border-radius:6px;text-decoration:none;font-size:0.8em;font-weight:600;white-space:nowrap;align-self:center">
+    ⬇ Download Template CSV
+  </a>
+</div>
+
+{{ block.super }}
+{% endblock %}
+
+{% block extrajs %}
+{{ block.super }}
+<style>
+@keyframes iot-fadeIn  { from { opacity:0 } to { opacity:1 } }
+@keyframes iot-slideUp { from { opacity:0; transform:translateY(40px) scale(.95) } to { opacity:1; transform:translateY(0) scale(1) } }
+@keyframes iot-progress { from { width:100% } to { width:0% } }
+#iot-success-overlay {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,.45); z-index:99999;
+  display:flex; align-items:center; justify-content:center;
+  animation:iot-fadeIn .25s ease;
+}
+#iot-success-box {
+  background:#fff; border-radius:18px; padding:36px 44px 28px;
+  max-width:420px; width:92%; text-align:center;
+  box-shadow:0 24px 70px rgba(0,0,0,.25);
+  animation:iot-slideUp .35s cubic-bezier(.22,.97,.58,1);
+  position:relative; overflow:hidden;
+}
+#iot-success-box .iot-progress-bar {
+  position:absolute; bottom:0; left:0; height:4px;
+  background:linear-gradient(90deg,#16a34a,#4ade80);
+  animation:iot-progress 5s linear forwards;
+}
+#iot-success-box .iot-icon {
+  width:72px; height:72px; border-radius:50%;
+  background:#dcfce7; display:flex; align-items:center;
+  justify-content:center; margin:0 auto 18px;
+}
+#iot-success-box h3 { margin:0 0 10px; color:#15803d; font-size:1.4em; font-weight:700 }
+#iot-success-box p  { margin:0 0 22px; color:#374151; font-size:.9em; line-height:1.65 }
+#iot-success-box button {
+  background:#16a34a; color:#fff; border:none;
+  padding:9px 28px; border-radius:8px; cursor:pointer;
+  font-size:.9em; font-weight:600; transition:background .15s;
+}
+#iot-success-box button:hover { background:#15803d }
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  /* Cari semua elemen alert success yang sudah dirender Jazzmin */
+  var selectors = [
+    '.alert-success',
+    '.messages .success',
+    'li.success',
+    '[class*="alert"][class*="success"]'
+  ];
+  var found = null;
+  for (var i = 0; i < selectors.length; i++) {
+    var el = document.querySelector(selectors[i]);
+    if (el) { found = el; break; }
+  }
+  if (!found) return;
+
+  var rawText = (found.innerText || found.textContent || '').trim();
+  /* Hanya tampilkan popup jika ada kata kunci import */
+  if (!rawText) return;
+
+  /* Buat popup overlay */
+  var overlay = document.createElement('div');
+  overlay.id = 'iot-success-overlay';
+
+  overlay.innerHTML =
+    '<div id="iot-success-box">' +
+      '<div class="iot-icon">' +
+        '<svg width="36" height="36" viewBox="0 0 24 24" fill="none">' +
+          '<circle cx="12" cy="12" r="11" fill="#16a34a"/>' +
+          '<path d="M7 12.5l3.5 3.5 6.5-7" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '</svg>' +
+      '</div>' +
+      '<h3>Import Berhasil! 🎉</h3>' +
+      '<p id="iot-msg-text"></p>' +
+      '<button id="iot-ok-btn">OK, Tutup</button>' +
+      '<div class="iot-progress-bar" id="iot-pb"></div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  /* Set teks (aman dari XSS) */
+  document.getElementById('iot-msg-text').textContent = rawText;
+
+  /* Tutup dengan tombol */
+  document.getElementById('iot-ok-btn').addEventListener('click', closePopup);
+
+  /* Tutup klik di luar */
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) closePopup();
+  });
+
+  /* Auto-close setelah 5 detik */
+  var timer = setTimeout(closePopup, 5000);
+
+  function closePopup() {
+    clearTimeout(timer);
+    var el = document.getElementById('iot-success-overlay');
+    if (el) {
+      el.style.opacity = '0';
+      el.style.transition = 'opacity .2s';
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 220);
+    }
+  }
+});
+</script>
+{% endblock %}

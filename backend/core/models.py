@@ -17,12 +17,14 @@ class DeviceStatus(models.TextChoices):
     ACTIVE = "active", "Active"
     REPAIR = "repair", "Repair"
     BROKEN = "broken", "Broken"
+    NONAKTIF = "nonaktif", "Nonaktif"  # Dicopot / tidak dipakai lagi
 
 
 class RepairStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     COMPLETED = "completed", "Completed"
     APPROVED = "approved", "Approved"
+    DICOPOT = "dicopot", "Dicopot"  # Perangkat dilepas dari line
 
 
 class User(models.Model):
@@ -55,15 +57,17 @@ class User(models.Model):
 
     class Meta:
         db_table = "User"
-        managed = False
 
 
 class Device(models.Model):
     id = models.CharField(primary_key=True, max_length=100, default=generate_id, editable=False)
     mcid = models.CharField(max_length=100, unique=True)
     mac_address = models.CharField(max_length=100, blank=True, default="")
-    factory = models.CharField(max_length=100)
-    line = models.CharField(max_length=100)
+    factory = models.CharField(max_length=100, blank=True, default="")
+    line = models.CharField(max_length=100, blank=True, default="")
+    type_machine = models.CharField(max_length=100, blank=True, default="", verbose_name="Tipe Mesin")
+    model_machine = models.CharField(max_length=100, blank=True, default="", verbose_name="Model Mesin")
+    type_iot = models.CharField(max_length=100, blank=True, default="", verbose_name="Tipe IoT")
     status = models.CharField(
         max_length=20,
         choices=DeviceStatus.choices,
@@ -77,7 +81,6 @@ class Device(models.Model):
 
     class Meta:
         db_table = "Device"
-        managed = False
 
 
 class Repair(models.Model):
@@ -108,7 +111,6 @@ class Repair(models.Model):
 
     class Meta:
         db_table = "Repair"
-        managed = False
 
 
 class Installation(models.Model):
@@ -134,5 +136,49 @@ class Installation(models.Model):
 
     class Meta:
         db_table = "Installation"
-        managed = False
+
+
+class ActivityLog(models.Model):
+    ACTION_LOGIN = "login"
+    ACTION_LOGOUT = "logout"
+    ACTION_REGISTER = "register"
+    ACTION_CREATE_REPAIR = "create_repair"
+    ACTION_UPDATE_REPAIR = "update_repair"
+    ACTION_DICOPOT = "dicopot"
+    ACTION_CREATE_INSTALLATION = "create_installation"
+    ACTION_IMPORT = "import_data"
+    ACTION_EXPORT = "export_data"
+
+    ACTION_CHOICES = [
+        (ACTION_LOGIN, "Login"),
+        (ACTION_LOGOUT, "Logout"),
+        (ACTION_REGISTER, "Registrasi User"),
+        (ACTION_CREATE_REPAIR, "Buat Laporan Error"),
+        (ACTION_UPDATE_REPAIR, "Update Repair"),
+        (ACTION_DICOPOT, "Dicopot Perangkat"),
+        (ACTION_CREATE_INSTALLATION, "Instalasi Perangkat"),
+        (ACTION_IMPORT, "Import Data"),
+        (ACTION_EXPORT, "Export Data"),
+    ]
+
+    id = models.CharField(primary_key=True, max_length=100, default=generate_id, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="activities"
+    )
+    user_email = models.CharField(max_length=255, blank=True, db_index=True)
+    user_name = models.CharField(max_length=255, blank=True)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES, db_index=True)
+    description = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    def __str__(self) -> str:
+        ts = self.timestamp.strftime("%Y-%m-%d %H:%M") if self.timestamp else "—"
+        return f"{self.user_email} — {self.action} @ {ts}"
+
+    class Meta:
+        db_table = "ActivityLog"
+        ordering = ["-timestamp"]
+        verbose_name = "Activity Log"
+        verbose_name_plural = "Activity Logs"
 

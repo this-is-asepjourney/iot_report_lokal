@@ -3,8 +3,11 @@
 __pycache__/
 *.pyc
 
-# Django env files
+# Env (Docker / local)
+.env
 backend/.env
+# Uploaded media (foto repair)
+backend/media/
 
 # Node / Next
 frontend/node_modules/

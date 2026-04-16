@@ -1,0 +1,140 @@
+{% extends "admin/import_export/import.html" %}
+{% load i18n %}
+
+{% block extrajs %}
+{{ block.super }}
+<style>
+#iot-import-overlay {
+  display: none;
+  position: fixed; top:0; left:0; right:0; bottom:0;
+  background: rgba(0,0,0,.55); z-index: 99999;
+  flex-direction: column; align-items: center; justify-content: center;
+}
+#iot-import-overlay.show { display: flex; }
+#iot-import-box {
+  background: #fff; border-radius: 16px; padding: 36px 44px 28px;
+  max-width: 400px; width: 90%; text-align: center;
+  box-shadow: 0 24px 70px rgba(0,0,0,.25);
+}
+#iot-import-box h3 { margin: 0 0 8px; font-size: 1.2em; font-weight: 700; color: #1d4ed8 }
+#iot-import-box p  { margin: 0 0 18px; font-size: .88em; color: #6b7280 }
+.iot-pb-track {
+  width: 100%; height: 10px; background: #e2e8f0;
+  border-radius: 99px; overflow: hidden;
+}
+.iot-pb-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #2563eb, #38bdf8, #2563eb);
+  background-size: 200% 100%;
+  border-radius: 99px;
+  animation: iot-bar-move 1.4s linear infinite, iot-bar-grow 12s ease-out forwards;
+}
+@keyframes iot-bar-move { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+@keyframes iot-bar-grow { 0%{width:0%} 40%{width:60%} 80%{width:85%} 100%{width:92%} }
+.iot-pb-label { margin-top: 8px; font-size: .78em; color: #6b7280 }
+</style>
+<script>
+(function () {
+  function showOverlay(msg) {
+    var box = document.getElementById('iot-import-overlay');
+    var lbl = document.getElementById('iot-import-msg');
+    if (lbl) lbl.textContent = msg || 'Mohon tunggu, proses sedang berjalan…';
+    if (box) box.classList.add('show');
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form').forEach(function (form) {
+      form.addEventListener('submit', function () {
+        var btn = form.querySelector('[type=submit]');
+        var label = btn ? btn.value || btn.textContent : '';
+        var isConfirm = label.toLowerCase().indexOf('confirm') !== -1 ||
+                        label.toLowerCase().indexOf('konfirmasi') !== -1;
+        showOverlay(isConfirm
+          ? 'Mengimpor data ke database… Mohon tunggu.'
+          : 'Memvalidasi dan membaca file… Mohon tunggu.');
+      });
+    });
+  });
+})();
+</script>
+
+<!-- Overlay element -->
+<div id="iot-import-overlay">
+  <div id="iot-import-box">
+    <h3>⏳ Proses Import</h3>
+    <p id="iot-import-msg">Mohon tunggu, proses sedang berjalan…</p>
+    <div class="iot-pb-track">
+      <div class="iot-pb-fill"></div>
+    </div>
+    <p class="iot-pb-label">Jangan tutup atau refresh halaman ini</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{# ── Panduan Format + Tombol Download Template ── #}
+<div class="col-12">
+  <div class="card mb-3" style="border:1px solid #bfdbfe">
+    <div class="card-header" style="background:#eff6ff;border-bottom:1px solid #bfdbfe">
+      <div class="card-title" style="color:#1d4ed8;font-weight:700;margin:0">
+        📋 Format File Import Repair / Error
+      </div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:.85em;color:#374151;margin-bottom:8px">
+        Kolom wajib:
+        <code style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px">mcid</code>
+        <code style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px">factory</code>
+        <code style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px">line</code>
+        <code style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px">date</code>
+        <code style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px">problem</code>
+        <code style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px">action</code>
+        <code style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px">technician_name</code>
+        <code style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:4px">status</code>
+      </p>
+
+      <div class="table-responsive mb-3">
+        <table class="table table-sm table-bordered" style="font-size:.82em">
+          <thead class="table-primary">
+            <tr>
+              <th>Kolom</th>
+              <th>Keterangan</th>
+              <th>Contoh Nilai</th>
+              <th>Wajib?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>mcid</code></td><td>ID perangkat (kunci upsert bersama date)</td><td>M10068525</td><td><span class="badge bg-danger">Ya</span></td></tr>
+            <tr class="table-light"><td><code>mac_address</code></td><td>MAC address perangkat</td><td>48:55:19:EE:BC:AA</td><td><span class="badge bg-success">Opsional</span></td></tr>
+            <tr><td><code>factory</code></td><td>Nama pabrik / gedung</td><td>FAC-C2</td><td><span class="badge bg-danger">Ya</span></td></tr>
+            <tr class="table-light"><td><code>line</code></td><td>Nama line produksi</td><td>LINE 5</td><td><span class="badge bg-danger">Ya</span></td></tr>
+            <tr><td><code>date</code></td><td>Tanggal & waktu error (format: YYYY-MM-DD HH:MM:SS)</td><td>2026-03-09 08:30:00</td><td><span class="badge bg-danger">Ya</span></td></tr>
+            <tr class="table-light"><td><code>problem</code></td><td>Deskripsi masalah / error</td><td>Sensor error pada line conveyor</td><td><span class="badge bg-danger">Ya</span></td></tr>
+            <tr><td><code>action</code></td><td>Tindakan yang dilakukan</td><td>Replace sensor, Kalibrasi ulang</td><td><span class="badge bg-danger">Ya</span></td></tr>
+            <tr class="table-light"><td><code>technician_name</code></td><td>Nama teknisi penanggung jawab</td><td>Budi Santoso</td><td><span class="badge bg-danger">Ya</span></td></tr>
+            <tr><td><code>status</code></td><td>Status repair</td><td>pending | completed | approved</td><td><span class="badge bg-danger">Ya</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-family:monospace;font-size:.78em;overflow-x:auto;white-space:nowrap">
+        mcid,mac_address,factory,line,date,problem,action,technician_name,status<br>
+        M10068525,48:55:19:EE:BC:AA,FAC-C2,LINE 5,2026-03-09 08:30:00,Sensor error,Replace sensor,Budi Santoso,pending
+      </div>
+
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <a href="{% url 'admin:core_repair_template_csv' %}"
+           class="btn btn-primary btn-sm"
+           style="font-weight:600">
+          ⬇ Download Template CSV
+        </a>
+        <span style="font-size:.8em;color:#92400e;background:#fef9c3;border:1px solid #fde68a;border-radius:6px;padding:4px 10px">
+          ⚠️ <strong>Kunci upsert: mcid + date.</strong> Jika sudah ada → di-UPDATE. Jika belum → di-INSERT (baru).
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+{# ── Form import bawaan Jazzmin ── #}
+{{ block.super }}
+{% endblock %}
